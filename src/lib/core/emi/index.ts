@@ -1,0 +1,32 @@
+export {
+  addMonths,
+  buildSchedule,
+  computeEmi,
+  effectiveRate,
+  interestPaidToDate,
+  interestShareOfNextEmi,
+  monthlyRate,
+  nextEmiDate,
+  remainingInterest,
+  remainingSchedule,
+  tenureForEmi,
+  type ScheduleOptions,
+} from './amortization';
+
+export {
+  buildPayoffPlan,
+  compareStrategies,
+  evaluateRefinance,
+  prepayVsInvest,
+  simulateEmiReduction,
+  simulateExtraMonthly,
+  simulatePrepayment,
+  type PayoffPlan,
+  type PayoffPlanStep,
+  type PayoffStrategy,
+  type PrepaymentResult,
+  type PrepayVsInvestInput,
+  type PrepayVsInvestResult,
+  type RefinanceResult,
+  type StrategyComparison,
+} from './payoff';
