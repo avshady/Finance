@@ -89,7 +89,9 @@ fail.
 ## Design decisions
 
 **Local-first.** IndexedDB is the source of truth; all computation runs in your browser.
-Works offline, with no account. No telemetry, no analytics SDK, no third-party fonts.
+Works offline, with no account. The shipped app reports nothing anywhere: no analytics
+SDK, no third-party fonts, no phoning home. (Next.js's own build-time CLI telemetry is
+disabled via `NEXT_TELEMETRY_DISABLED` in `.env.example` and CI.)
 Server routes exist only for connector handshakes and webhook parsing — and the ingest
 endpoint parses without persisting, because a server that stores this data would break
 the point of the app.
