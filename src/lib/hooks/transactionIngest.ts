@@ -8,7 +8,7 @@
  * behaviour and neither owns the other.
  */
 
-import { getDb } from '@/lib/core/db';
+import { bulkUpsertTransactions, deleteTransaction, getDb, saveTransaction } from '@/lib/core/db';
 import { classify } from '@/lib/core/categorize';
 import { dedupeBatch, type DedupeCandidate } from '@/lib/core/ingest';
 import { paise, type Paise } from '@/lib/core/domain/money';
@@ -114,15 +114,14 @@ export async function commitParsedTransactions(params: {
     else committed.push(txn);
   }
 
-  await db.transactions.bulkPut([...committed, ...needsReview]);
+  await bulkUpsertTransactions([...committed, ...needsReview]);
 
   return { committed, needsReview, duplicates: duplicateCount };
 }
 
 /** Confirm a review-queue transaction: clears the flag so it counts in analytics/advice. */
 export async function confirmReviewTransaction(txn: Transaction, categoryId?: string): Promise<void> {
-  const db = getDb();
-  await db.transactions.put({
+  await saveTransaction({
     ...txn,
     categoryId: categoryId ?? txn.categoryId,
     categoryAuto: categoryId ? false : txn.categoryAuto,
@@ -134,8 +133,7 @@ export async function confirmReviewTransaction(txn: Transaction, categoryId?: st
 
 /** Reject a review-queue transaction: it was noise (OTP-adjacent parse, duplicate, etc). */
 export async function rejectReviewTransaction(id: string): Promise<void> {
-  const db = getDb();
-  await db.transactions.delete(id);
+  await deleteTransaction(id);
 }
 
 export type { Paise };

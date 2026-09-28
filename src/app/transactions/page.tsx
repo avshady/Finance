@@ -13,7 +13,7 @@ import {
   NEEDS_REVIEW_TAG,
 } from '@/lib/hooks/transactionIngest';
 import { paise } from '@/lib/core/domain/money';
-import type { PaymentMethod, Transaction, TxnDirection } from '@/lib/core/domain/types';
+import type { Account, Category, PaymentMethod, Transaction, TxnDirection } from '@/lib/core/domain/types';
 import { Card, CardHeader } from '@/components/Card';
 import { CurrencyText } from '@/components/CurrencyText';
 import { EmptyState } from '@/components/EmptyState';
@@ -274,8 +274,8 @@ function AddTransactionSheet({
 }: {
   open: boolean;
   onClose: () => void;
-  accounts: Array<{ id: string; name: string }>;
-  categories: Array<{ id: string; name: string }>;
+  accounts: Account[];
+  categories: Category[];
   overrides: Record<string, string>;
 }) {
   const [amount, setAmount] = useState('');

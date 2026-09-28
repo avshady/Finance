@@ -5,7 +5,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { getDb, saveGoal, deleteGoal } from '@/lib/core/db';
 import { useSnapshot } from '@/lib/hooks/useSnapshot';
 import { assessGoal, projectFi } from '@/lib/core/wealth';
-import { fromRupees, ZERO } from '@/lib/core/domain/money';
+import { fromRupees, subtract, ZERO } from '@/lib/core/domain/money';
 import type { Goal, GoalKind } from '@/lib/core/domain/types';
 import { Card, CardHeader } from '@/components/Card';
 import { CurrencyText } from '@/components/CurrencyText';
@@ -35,14 +35,12 @@ export default function GoalsPage() {
   const fi = useMemo(() => {
     if (!snapshot) return null;
     const annualExpenses = fromRupees(Math.max((snapshot.metrics.monthlyExpenses / 100) * 12, 0));
-    const monthlyContribution =
-      snapshot.metrics.savingsRate !== null
-        ? ((snapshot.metrics.monthlyIncome - snapshot.metrics.monthlyExpenses) as typeof snapshot.metrics.monthlyIncome)
-        : ZERO;
+    const surplus = subtract(snapshot.metrics.monthlyIncome, snapshot.metrics.monthlyExpenses);
+    const monthlyContribution = surplus > 0 ? surplus : ZERO;
     return projectFi({
-      annualExpenses: snapshot.metrics.monthlyExpenses > 0 ? annualExpenses : annualExpenses,
+      annualExpenses,
       currentCorpus: snapshot.metrics.totalAssets,
-      monthlyContribution: monthlyContribution > 0 ? monthlyContribution : ZERO,
+      monthlyContribution,
       nominalReturn: snapshot.profile.expectedPortfolioReturn,
       inflation: snapshot.profile.assumedInflation,
       currentYear: new Date(snapshot.asOf).getUTCFullYear(),
@@ -160,10 +158,6 @@ function GoalFormSheet({ open, goal, onClose }: { open: boolean; goal: Goal | nu
   const [monthlyContribution, setMonthlyContribution] = useState(goal ? (goal.monthlyContribution / 100).toString() : '0');
   const [expectedReturn, setExpectedReturn] = useState(goal ? (goal.expectedReturn * 100).toString() : '11');
 
-  if (open && goal && goal.id !== (lastGoalId.current ?? goal.id) === false) {
-    // no-op placeholder to satisfy lint about unused ref pattern below
-  }
-
   async function handleSave() {
     const target = Number(targetAmount);
     if (!name.trim() || !Number.isFinite(target) || target <= 0 || !targetDate) return;
@@ -243,5 +237,3 @@ function GoalFormSheet({ open, goal, onClose }: { open: boolean; goal: Goal | nu
     </Sheet>
   );
 }
-
-const lastGoalId = { current: undefined as string | undefined };

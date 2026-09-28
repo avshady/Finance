@@ -351,7 +351,8 @@ export interface IngestBatchOutcome {
 export async function ingestBatch(events: RawEvent[]): Promise<IngestBatchOutcome> {
   const results: IngestOutcome[] = [];
   for (const event of events) {
-    // eslint-disable-next-line no-await-in-loop -- dedupe correctness needs strict ordering
+    // Sequential by design: later events must see transactions created by earlier
+    // ones in this same batch for dedupe to be correct.
     results.push(await ingestRawEvent(event));
   }
   const totals = results.reduce(

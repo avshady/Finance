@@ -6,12 +6,13 @@ import { getDb, PROFILE_SINGLETON_ID } from '@/lib/core/db';
 import { BUILTIN_CATEGORIES } from '@/lib/core/db/seed';
 import { buildSnapshot, detectRecurring } from '@/lib/core/analytics';
 import { ALL_RULES, generateAdvice, type AdviceResult } from '@/lib/core/advisor';
+import { paise } from '@/lib/core/domain/money';
 import type { FinancialSnapshot, UserProfile } from '@/lib/core/domain/types';
 
 const DEFAULT_PROFILE: UserProfile = {
   currency: 'INR',
   locale: 'en-IN',
-  monthlyNetIncome: 0,
+  monthlyNetIncome: paise(0),
   dependents: 0,
   taxRegime: 'new',
   riskProfile: 'moderate',

@@ -92,9 +92,14 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-5 pb-4">
-      <header>
-        <h1 className="text-lg font-semibold text-foreground">Dashboard</h1>
-        <p className="text-xs text-muted">As of {new Date(snapshot.asOf).toLocaleDateString('en-IN')}</p>
+      <header className="flex items-start justify-between">
+        <div>
+          <h1 className="text-lg font-semibold text-foreground">Dashboard</h1>
+          <p className="text-xs text-muted">As of {new Date(snapshot.asOf).toLocaleDateString('en-IN')}</p>
+        </div>
+        <Link href="/settings" className="rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted hover:text-foreground" aria-label="Settings">
+          {'⚙️'} Settings
+        </Link>
       </header>
 
       <Card>
