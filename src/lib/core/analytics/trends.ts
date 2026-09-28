@@ -3,7 +3,7 @@
  */
 
 import type { Transaction } from '../domain/types';
-import { add, type Paise, ratio, subtract, ZERO } from '../domain/money';
+import { add, type Paise, ratio, scale, subtract, ZERO } from '../domain/money';
 import { incomeByMonth, monthKey, spendByCategory, spendByMonth, trailingMonthKeys } from './aggregate';
 
 export interface CategoryTrendResult {
@@ -17,6 +17,17 @@ export interface LifestyleInflationResult {
   incomeGrowthPct: number;
   savingsRateDelta: number;
   inflating: boolean;
+  /**
+   * The two window savings rates this verdict was actually measured from, and the two
+   * window monthly incomes. Exposed so callers can quantify the finding without
+   * reconstructing a baseline from a different window - the whole-history median in
+   * `SnapshotMetrics.savingsRate` is not the same number as the late-window rate here,
+   * and subtracting the delta from it produces a subtly wrong "early" rate.
+   */
+  earlySavingsRate: number | null;
+  lateSavingsRate: number | null;
+  earlyMonthlyIncome: Paise;
+  lateMonthlyIncome: Paise;
 }
 
 export interface TopMover {
@@ -115,7 +126,15 @@ export function lifestyleInflation(txns: readonly Transaction[], asOf: string): 
     .sort();
 
   if (allMonths.length < MIN_WINDOW_MONTHS * 2) {
-    return { incomeGrowthPct: 0, savingsRateDelta: 0, inflating: false };
+    return {
+      incomeGrowthPct: 0,
+      savingsRateDelta: 0,
+      inflating: false,
+      earlySavingsRate: null,
+      lateSavingsRate: null,
+      earlyMonthlyIncome: ZERO,
+      lateMonthlyIncome: ZERO,
+    };
   }
 
   const windowSize = Math.min(MIN_WINDOW_MONTHS, Math.floor(allMonths.length / 2));
@@ -146,7 +165,15 @@ export function lifestyleInflation(txns: readonly Transaction[], asOf: string): 
   // savings rate (delta <= +2 percentage points, i.e. essentially no improvement).
   const inflating = incomeGrowthPct >= 10 && savingsRateDelta <= 0.02;
 
-  return { incomeGrowthPct, savingsRateDelta, inflating };
+  return {
+    incomeGrowthPct,
+    savingsRateDelta,
+    inflating,
+    earlySavingsRate,
+    lateSavingsRate,
+    earlyMonthlyIncome: scale(earlyIncome, 1 / windowSize),
+    lateMonthlyIncome: scale(lateIncome, 1 / windowSize),
+  };
 }
 
 /**

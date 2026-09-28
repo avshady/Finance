@@ -291,19 +291,16 @@ export const lifestyleInflationRule: AdvisorRule = {
     const result = lifestyleInflation(snapshot.transactions, snapshot.asOf);
     if (!result.inflating) return [];
 
-    const lateSavingsRate = snapshot.metrics.savingsRate;
-    // Can't state a defensible rupee number without a savings-rate baseline to compare
-    // the raise against.
-    if (lateSavingsRate === null) return [];
-
-    const earlySavingsRate = lateSavingsRate - result.savingsRateDelta;
-    if (earlySavingsRate <= 0) return [];
+    // Use the rates and incomes measured over the same two windows the verdict came
+    // from. Reconstructing an "early" rate by subtracting the delta from the
+    // whole-history median in SnapshotMetrics mixes two different windows and yields a
+    // subtly wrong baseline for a figure shown to the user.
+    const { earlySavingsRate, earlyMonthlyIncome, lateMonthlyIncome } = result;
+    if (earlySavingsRate === null || earlySavingsRate <= 0) return [];
 
     const incomeGrowthRatio = result.incomeGrowthPct / 100;
     if (incomeGrowthRatio <= 0) return [];
 
-    const lateMonthlyIncome = snapshot.metrics.monthlyIncome;
-    const earlyMonthlyIncome = scale(lateMonthlyIncome, 1 / (1 + incomeGrowthRatio));
     const raiseMonthly = subtract(lateMonthlyIncome, earlyMonthlyIncome);
     if (raiseMonthly <= 0) return [];
 
