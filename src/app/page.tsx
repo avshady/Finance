@@ -79,11 +79,12 @@ export default function DashboardPage() {
     );
   }
 
+  const today = snapshot.asOf.slice(0, 10);
   const cashflow = cashflowSeries(snapshot.transactions, 12, snapshot.asOf);
   const velocity = spendingVelocity(snapshot.transactions, snapshot.budgets, snapshot.asOf);
   const upcomingEmis = snapshot.loans
     .filter((l) => !l.closed)
-    .map((l) => ({ loan: l, date: nextEmiDate(l) }))
+    .map((l) => ({ loan: l, date: nextEmiDate(l, today) }))
     .sort((a, b) => Date.parse(a.date) - Date.parse(b.date))
     .slice(0, 4);
 

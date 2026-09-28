@@ -270,9 +270,37 @@ function pad(n: number, width: number): string {
   return String(n).padStart(width, '0');
 }
 
-/** Next scheduled EMI date, derived from the start date and instalments paid. */
-export function nextEmiDate(loan: Loan): IsoDate {
-  return addMonths(loan.startDate, loan.paidInstalments);
+/**
+ * Next scheduled EMI date.
+ *
+ * Derived from the start date and the number of instalments paid. That alone can land in
+ * the past whenever `paidInstalments` lags reality - which it routinely does, since it
+ * only advances when a payment is actually observed, and a statement can arrive days
+ * late. A UI rendering that figure then reports a "next" EMI "in -27 days".
+ *
+ * Passing `asOf` rolls the date forward whole months to the next occurrence on or after
+ * that date, which is the date a borrower would actually name. Omitting it keeps the
+ * plain schedule-derived date, which is what the amortization functions want.
+ */
+export function nextEmiDate(loan: Loan, asOf?: IsoDate): IsoDate {
+  const scheduled = addMonths(loan.startDate, loan.paidInstalments);
+  if (asOf === undefined || scheduled >= asOf) return scheduled;
+
+  // Step in whole months from the schedule so the EMI day is preserved (and stays
+  // clamped for short months by addMonths).
+  const monthsBehind =
+    (yearOf(asOf) - yearOf(scheduled)) * 12 + (monthOf(asOf) - monthOf(scheduled));
+  let candidate = addMonths(scheduled, Math.max(monthsBehind, 0));
+  while (candidate < asOf) candidate = addMonths(candidate, 1);
+  return candidate;
+}
+
+function yearOf(date: IsoDate): number {
+  return Number(date.slice(0, 4));
+}
+
+function monthOf(date: IsoDate): number {
+  return Number(date.slice(5, 7));
 }
 
 function roundToRupee(a: Paise): Paise {

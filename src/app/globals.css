@@ -102,8 +102,21 @@ body {
   line-height: 1;
   color: rgb(var(--color-muted));
   text-decoration: none;
-  padding: 4px 6px;
+  padding: 4px 2px;
   border-radius: 8px;
+  /* Seven equal tabs that shrink rather than overflow. Without flex-basis 0 and
+     min-width 0, the labels force the bar wider than a 360px viewport. */
+  flex: 1 1 0;
+  min-width: 0;
+  text-align: center;
+}
+
+.bottom-tab-link span:last-child {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .bottom-tab-link:hover,

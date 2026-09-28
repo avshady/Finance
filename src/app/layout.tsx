@@ -35,16 +35,22 @@ export const viewport: Viewport = {
 interface NavLink {
   href: string;
   label: string;
+  /** Shorter label for the bottom tab bar, where seven full labels do not fit at 360px. */
+  short?: string;
   icon: string;
 }
 
 const NAV_LINKS: NavLink[] = [
-  { href: '/', label: 'Dashboard', icon: '\u{1F3E0}' },
-  { href: '/transactions', label: 'Transactions', icon: '\u{1F4B8}' },
+  { href: '/', label: 'Dashboard', short: 'Home', icon: '\u{1F3E0}' },
+  { href: '/transactions', label: 'Transactions', short: 'Spends', icon: '\u{1F4B8}' },
   { href: '/debt', label: 'Debt', icon: '\u{1F4C9}' },
-  { href: '/insights', label: 'Insights', icon: '\u{1F4A1}' },
+  { href: '/insights', label: 'Insights', short: 'Advice', icon: '\u{1F4A1}' },
   { href: '/goals', label: 'Goals', icon: '\u{1F3AF}' },
-  { href: '/connectors', label: 'Connectors', icon: '\u{1F50C}' },
+  { href: '/connectors', label: 'Connectors', short: 'Connect', icon: '\u{1F50C}' },
+  // Settings belongs in the primary nav, not behind a dashboard header link: income,
+  // date of birth and dependents are entered here, and most advisor rules stay silent
+  // until they are.
+  { href: '/settings', label: 'Settings', icon: '\u{2699}\u{FE0F}' },
 ];
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -74,9 +80,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
             <nav className="bottom-tab-bar" aria-label="Primary">
               {NAV_LINKS.map((link) => (
-                <Link key={link.href} href={link.href} className="bottom-tab-link">
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="bottom-tab-link"
+                  aria-label={link.label}
+                >
                   <span aria-hidden="true">{link.icon}</span>
-                  <span>{link.label}</span>
+                  <span>{link.short ?? link.label}</span>
                 </Link>
               ))}
             </nav>

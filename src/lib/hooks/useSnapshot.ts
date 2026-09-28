@@ -42,7 +42,14 @@ export function useSnapshot(): UseSnapshotResult {
   const budgets = useLiveQuery(() => db.budgets.toArray(), []);
   const goals = useLiveQuery(() => db.goals.toArray(), []);
   const categoriesRaw = useLiveQuery(() => db.categories.toArray(), []);
-  const storedProfile = useLiveQuery(() => db.profile.get(PROFILE_SINGLETON_ID), []);
+  // Resolve a missing profile to null, not undefined. useLiveQuery uses undefined to
+  // mean "query has not resolved yet", and Dexie's get() returns undefined for a row
+  // that does not exist - so a first-time user with no saved profile is indistinguishable
+  // from a query still in flight, and every screen hangs on "Loading..." forever.
+  const storedProfile = useLiveQuery(
+    () => db.profile.get(PROFILE_SINGLETON_ID).then((p) => p ?? null),
+    [],
+  );
 
   const loading =
     accounts === undefined ||

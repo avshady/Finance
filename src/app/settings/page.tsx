@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
+
+import { clearAllData, loadDemoData } from '@/lib/demo';
 import { getDb, getProfile, saveProfile } from '@/lib/core/db';
 import { fromRupees, toRupees } from '@/lib/core/domain/money';
 import type { RiskProfile, TaxRegime, UserProfile } from '@/lib/core/domain/types';
@@ -27,7 +29,10 @@ const DEFAULT_PROFILE: UserProfile = {
 };
 
 export default function SettingsPage() {
-  const stored = useLiveQuery(() => getProfile(), []);
+  // `?? null` matters: useLiveQuery reports "not resolved yet" as undefined, and
+  // getProfile() also returns undefined when no profile has been saved. Without this,
+  // a first-time user - exactly who needs this screen - never gets past "Loading...".
+  const stored = useLiveQuery(() => getProfile().then((p) => p ?? null), []);
   const [form, setForm] = useState<UserProfile | null>(null);
   const [saved, setSaved] = useState(false);
 
@@ -200,6 +205,7 @@ export default function SettingsPage() {
 function DataCard() {
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [demoNote, setDemoNote] = useState<string | null>(null);
 
   async function handleExport() {
     setBusy(true);
@@ -274,12 +280,40 @@ function DataCard() {
     }
   }
 
+  /**
+   * Loads the 14-month demo dataset. Wiping first keeps the demo from being merged into
+   * whatever the user already has, which would produce a ledger that is neither theirs
+   * nor the demo and quietly wrong advice on top of it.
+   */
+  async function handleLoadDemo() {
+    setBusy(true);
+    setDemoNote(null);
+    try {
+      await clearAllData();
+      await loadDemoData();
+      setDemoNote('Demo data loaded — open the Dashboard or Insights to see it.');
+    } catch (error) {
+      setDemoNote(
+        `Could not load the demo data: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <Card>
-      <CardHeader title="Your data" subtitle="Everything lives only in this browser. You can take it or destroy it at any time." />
+      <CardHeader
+        title="Your data"
+        subtitle="Everything lives only in this browser. You can take it or destroy it at any time."
+      />
+      {demoNote ? <p className="mb-3 text-xs text-muted">{demoNote}</p> : null}
       <div className="flex flex-wrap gap-2">
         <Button variant="secondary" onClick={handleExport} disabled={busy}>
           Export all data as JSON
+        </Button>
+        <Button variant="secondary" onClick={handleLoadDemo} disabled={busy}>
+          {busy ? 'Working…' : 'Load demo data'}
         </Button>
         {!confirmDelete ? (
           <Button variant="danger" onClick={() => setConfirmDelete(true)} disabled={busy}>

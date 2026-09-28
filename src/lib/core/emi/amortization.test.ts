@@ -8,6 +8,7 @@ import {
   computeEmi,
   effectiveRate,
   interestShareOfNextEmi,
+  nextEmiDate,
   remainingSchedule,
   tenureForEmi,
 } from './amortization';
@@ -421,6 +422,39 @@ describe('compareStrategies', () => {
     const c = compareStrategies([], fromRupees(5_000));
     expect(c.avalanche.steps).toHaveLength(0);
     expect(c.avalanche.debtFreeInMonths).toBe(0);
+  });
+});
+
+describe('nextEmiDate', () => {
+  it('derives the scheduled date from start plus instalments paid', () => {
+    expect(nextEmiDate(loan({ startDate: '2026-01-05', paidInstalments: 3 }))).toBe('2026-04-05');
+  });
+
+  it('rolls forward to a future date when instalments paid lag reality', () => {
+    // paidInstalments only advances when a payment is observed, so the schedule-derived
+    // date routinely sits in the past. Reporting it as the NEXT EMI produced a
+    // countdown of "in -27 days" on the dashboard.
+    const stale = loan({ startDate: '2023-09-01', paidInstalments: 36 });
+    expect(nextEmiDate(stale)).toBe('2026-09-01');
+    expect(nextEmiDate(stale, '2026-09-28')).toBe('2026-10-01');
+  });
+
+  it('returns the scheduled date when it is already today or later', () => {
+    const l = loan({ startDate: '2026-01-05', paidInstalments: 9 });
+    expect(nextEmiDate(l, '2026-09-28')).toBe('2026-10-05');
+    expect(nextEmiDate(l, '2026-10-05')).toBe('2026-10-05');
+  });
+
+  it('preserves the EMI day across a long roll-forward, clamping short months', () => {
+    const l = loan({ startDate: '2020-01-31', paidInstalments: 0 });
+    expect(nextEmiDate(l, '2026-02-01')).toBe('2026-02-28');
+  });
+
+  it('never returns a date before asOf', () => {
+    for (const paid of [0, 5, 36, 120]) {
+      const l = loan({ startDate: '2019-03-15', paidInstalments: paid });
+      expect(nextEmiDate(l, '2026-09-28') >= '2026-09-28').toBe(true);
+    }
   });
 });
 

@@ -33,6 +33,8 @@ export default function DebtPage() {
   const [selectedLoanId, setSelectedLoanId] = useState<string | null>(null);
 
   const loading = loans === undefined;
+  // Today, for anchoring the "next EMI" date so it is never reported in the past.
+  const today = new Date().toISOString().slice(0, 10);
   const selectedLoan = active.find((l) => l.id === selectedLoanId) ?? active[0] ?? null;
 
   if (loading) {
@@ -58,7 +60,13 @@ export default function DebtPage() {
 
       <div className="space-y-3">
         {active.map((loan) => (
-          <LoanCard key={loan.id} loan={loan} selected={loan.id === selectedLoan?.id} onSelect={() => setSelectedLoanId(loan.id)} />
+          <LoanCard
+            key={loan.id}
+            loan={loan}
+            selected={loan.id === selectedLoan?.id}
+            onSelect={() => setSelectedLoanId(loan.id)}
+            asOfDate={today}
+          />
         ))}
       </div>
 
@@ -77,11 +85,22 @@ export default function DebtPage() {
   );
 }
 
-function LoanCard({ loan, selected, onSelect }: { loan: Loan; selected: boolean; onSelect: () => void }) {
+function LoanCard({
+  loan,
+  selected,
+  onSelect,
+  asOfDate,
+}: {
+  loan: Loan;
+  selected: boolean;
+  onSelect: () => void;
+  /** Today, as an ISO date. Keeps the "next EMI" from being reported in the past. */
+  asOfDate: string;
+}) {
   const progress = loan.tenureMonths > 0 ? loan.paidInstalments / loan.tenureMonths : 0;
   const monthsLeft = Math.max(loan.tenureMonths - loan.paidInstalments, 0);
   const interestShare = interestShareOfNextEmi(loan);
-  const date = nextEmiDate(loan);
+  const date = nextEmiDate(loan, asOfDate);
 
   return (
     <button onClick={onSelect} className="block w-full text-left">
