@@ -126,7 +126,7 @@ function healthySnapshot(overrides: Partial<FinancialSnapshot> = {}): FinancialS
   };
 }
 
-function creditCardLoan(outstanding: Paise): Loan {
+function creditCardRevolvingLoan(outstanding: Paise): Loan {
   return {
     id: 'loan.card',
     name: 'HDFC card revolving',
@@ -150,7 +150,7 @@ function creditCardLoan(outstanding: Paise): Loan {
 describe('generateAdvice — sequencing', () => {
   it('puts revolving card debt above every growth recommendation', () => {
     resetInsightIds();
-    const snapshot = healthySnapshot({ loans: [creditCardLoan(fromRupees(180_000))] });
+    const snapshot = healthySnapshot({ loans: [creditCardRevolvingLoan(fromRupees(180_000))] });
     const { insights } = generateAdvice(snapshot, ALL_RULES);
 
     const first = insights[0];
@@ -160,7 +160,7 @@ describe('generateAdvice — sequencing', () => {
 
   it('suppresses "invest more" advice while a card balance revolves', () => {
     resetInsightIds();
-    const snapshot = healthySnapshot({ loans: [creditCardLoan(fromRupees(180_000))] });
+    const snapshot = healthySnapshot({ loans: [creditCardRevolvingLoan(fromRupees(180_000))] });
     const { insights, suppressed } = generateAdvice(snapshot, ALL_RULES);
 
     const surfacedRules = insights.map((i) => i.rule);
@@ -240,7 +240,7 @@ describe('generateAdvice — ranking', () => {
 
   it('respects the limit without losing the highest-priority item', () => {
     resetInsightIds();
-    const snapshot = healthySnapshot({ loans: [creditCardLoan(fromRupees(180_000))] });
+    const snapshot = healthySnapshot({ loans: [creditCardRevolvingLoan(fromRupees(180_000))] });
     const { insights } = generateAdvice(snapshot, ALL_RULES, { limit: 2 });
     expect(insights).toHaveLength(2);
     expect(insights[0]?.rule).toBe('credit-card-revolving');
@@ -315,7 +315,7 @@ describe('generateAdvice — robustness', () => {
     resetInsightIds();
     const snapshots = [
       healthySnapshot(),
-      healthySnapshot({ loans: [creditCardLoan(fromRupees(180_000))] }),
+      healthySnapshot({ loans: [creditCardRevolvingLoan(fromRupees(180_000))] }),
       healthySnapshot({ metrics: metrics({ liquidAssets: 0 as Paise, savingsRate: -0.2 }) }),
       healthySnapshot({
         metrics: metrics({
@@ -339,7 +339,7 @@ describe('generateAdvice — robustness', () => {
 
   it('always shows its arithmetic — every insight has non-trivial reasoning', () => {
     resetInsightIds();
-    const snapshot = healthySnapshot({ loans: [creditCardLoan(fromRupees(180_000))] });
+    const snapshot = healthySnapshot({ loans: [creditCardRevolvingLoan(fromRupees(180_000))] });
     const { insights } = generateAdvice(snapshot, ALL_RULES);
     expect(insights.length).toBeGreaterThan(0);
     for (const insight of insights) {
@@ -354,6 +354,104 @@ describe('generateAdvice — robustness', () => {
     resetInsightIds();
     const { insights } = generateAdvice(healthySnapshot(), ALL_RULES, { only: ['savings-rate'] });
     expect(insights.every((i) => i.rule === 'savings-rate')).toBe(true);
+  });
+});
+
+describe('regressions', () => {
+  it('does not double-count a card balance that a tracked revolving loan mirrors', () => {
+    resetInsightIds();
+    const balance = fromRupees(210_000);
+    const loan = { ...creditCardRevolvingLoan(balance), mirrorsAccountId: 'acc.card' };
+    const snapshot = healthySnapshot({
+      accounts: [
+        ...healthySnapshot().accounts,
+        {
+          id: 'acc.card',
+          name: 'HDFC Regalia',
+          kind: 'credit_card',
+          currency: 'INR',
+          balance,
+          creditLimit: fromRupees(300_000),
+          createdAt: '2024-01-01T00:00:00.000Z',
+          updatedAt: '2026-09-01T00:00:00.000Z',
+        },
+      ],
+      loans: [loan],
+    });
+
+    const { insights } = generateAdvice(snapshot, ALL_RULES);
+    const card = insights.find((i) => i.rule === 'credit-card-revolving');
+    // The debt is 2.10 L once, not the 4.20 L a double-count produced.
+    expect(card?.headline).toContain('2.10 L');
+    expect(card?.headline).not.toContain('4.20 L');
+    expect(card?.impact.amountPaise).toBe(Math.round(balance * 0.42));
+  });
+
+  it('still counts an untracked card alongside a separate revolving loan', () => {
+    resetInsightIds();
+    const snapshot = healthySnapshot({
+      accounts: [
+        ...healthySnapshot().accounts,
+        {
+          id: 'acc.other-card',
+          name: 'Axis Card',
+          kind: 'credit_card',
+          currency: 'INR',
+          balance: fromRupees(40_000),
+          creditLimit: fromRupees(200_000),
+          createdAt: '2024-01-01T00:00:00.000Z',
+          updatedAt: '2026-09-01T00:00:00.000Z',
+        },
+      ],
+      // No mirrorsAccountId, so this is genuinely separate debt.
+      loans: [creditCardRevolvingLoan(fromRupees(100_000))],
+    });
+    const { insights } = generateAdvice(snapshot, ALL_RULES);
+    const card = insights.find((i) => i.rule === 'credit-card-revolving');
+    // 40k of untracked card balance plus a separate 1L revolving loan.
+    expect(card?.headline).toContain('1.40 L');
+  });
+
+  it('does not call financial independence "on track" when it lands after the target age', () => {
+    resetInsightIds();
+    // Born 1990, aiming to stop at 55 (2045), but saving very little.
+    const snapshot = healthySnapshot({
+      profile: profile({ dateOfBirth: '1990-06-15', retirementAge: 55 }),
+      metrics: metrics({
+        monthlyIncome: fromRupees(185_000),
+        monthlyExpenses: fromRupees(178_000),
+        monthlyEssentialExpenses: fromRupees(118_000),
+        savingsRate: 7_000 / 185_000,
+      }),
+    });
+
+    const { insights } = generateAdvice(snapshot, ALL_RULES);
+    const fi = insights.find((i) => i.rule === 'fi-trajectory');
+    expect(fi).toBeDefined();
+    expect(fi!.severity).not.toBe('positive');
+    expect(fi!.headline).toMatch(/after you planned to stop|does not get there/);
+  });
+
+  it('keeps FI positive when the plan genuinely arrives in time', () => {
+    resetInsightIds();
+    const snapshot = healthySnapshot({
+      profile: profile({ dateOfBirth: '1990-06-15', retirementAge: 60 }),
+      accounts: [
+        {
+          id: 'acc.mf',
+          name: 'Mutual funds',
+          kind: 'mutual_fund',
+          currency: 'INR',
+          balance: fromRupees(15_000_000),
+          createdAt: '2024-01-01T00:00:00.000Z',
+          updatedAt: '2026-09-01T00:00:00.000Z',
+        },
+      ],
+      metrics: metrics({ monthlyEssentialExpenses: fromRupees(50_000) }),
+    });
+    const { insights } = generateAdvice(snapshot, ALL_RULES);
+    const fi = insights.find((i) => i.rule === 'fi-trajectory');
+    expect(fi?.severity).toBe('positive');
   });
 });
 

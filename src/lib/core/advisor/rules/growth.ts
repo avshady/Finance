@@ -20,6 +20,7 @@ import {
   futureValueSip,
   projectFi,
   realReturn,
+  requiredSip,
   suggestAllocation,
 } from '../../wealth';
 import { ageOf, insightId, marginalTaxRate, pct, rupees } from '../engine';
@@ -515,18 +516,39 @@ export const fiTrajectoryRule: AdvisorRule = {
         ? Math.round((current.monthsToFi - improved.monthsToFi) / 12)
         : null;
 
+    // Reaching FI eventually is not the same as reaching it in time. Judge the projection
+    // against the age the user actually intends to stop working, otherwise "on track for
+    // 2065" reads as reassurance to someone who planned to retire in 2045.
+    const age = ageOf(snapshot);
+    const retirementAge = profile.retirementAge ?? 60;
+    const targetYear = age === null ? null : currentYear + Math.max(retirementAge - age, 0);
+    const onTime =
+      current.fiYear !== null && targetYear !== null ? current.fiYear <= targetYear : null;
+    const yearsLate =
+      current.fiYear !== null && targetYear !== null ? current.fiYear - targetYear : null;
+
     const reach =
       current.fiYear === null
         ? `On ${rupees(surplus)} a month this plan does not reach the target within 60 years`
-        : `At ${rupees(surplus)} a month you reach it around ${current.fiYear}`;
+        : `At ${rupees(surplus)} a month you reach it around ${current.fiYear}${
+            targetYear !== null
+              ? onTime
+                ? `, comfortably ahead of the ${retirementAge} you are aiming for (${targetYear})`
+                : ` — about ${yearsLate} year${yearsLate === 1 ? '' : 's'} later than the ${retirementAge} you are aiming for (${targetYear})`
+              : ''
+          }`;
 
     return [
       baseInsight('fi-trajectory', snapshot, {
-        severity: current.monthsToFi === null ? 'medium' : 'positive',
+        // Only genuinely on-track plans get to be positive. A plan that arrives twenty
+        // years after the intended retirement is a finding, not a reassurance.
+        severity: current.monthsToFi === null ? 'high' : onTime === false ? 'medium' : 'positive',
         headline:
           current.fiYear === null
             ? `Financial independence needs ${rupees(target)} — the current plan does not get there`
-            : `On track for financial independence around ${current.fiYear}`,
+            : onTime === false
+              ? `Financial independence lands around ${current.fiYear}, ${yearsLate} year${yearsLate === 1 ? '' : 's'} after you planned to stop`
+              : `On track for financial independence around ${current.fiYear}`,
         reasoning: `Your essential spending is ${rupees(
           metrics.monthlyEssentialExpenses,
         )} a month, or ${rupees(
@@ -547,7 +569,24 @@ export const fiTrajectoryRule: AdvisorRule = {
             ? ` Raising the contribution 10% a year — an ordinary raise, redirected rather than absorbed — brings that forward to about ${improved.fiYear}, roughly ${yearsSooner} year${yearsSooner === 1 ? '' : 's'} sooner.`
             : ''
         } A 3.5% withdrawal rate is used rather than the familiar 4%: that figure comes from US data over a 30-year retirement, and being conservative here means retiring slightly later rather than running out at 78.`,
-        impact: { amountPaise: ZERO, horizonMonths: current.monthsToFi ?? 720 },
+        impact: {
+          // When the plan misses the intended date, the actionable figure is the extra
+          // monthly contribution that would meet it.
+          amountPaise:
+            onTime === false && targetYear !== null
+              ? (() => {
+                  const monthsAvailable = Math.max((targetYear - currentYear) * 12, 1);
+                  const needed = requiredSip(
+                    target,
+                    corpus,
+                    current.realRate,
+                    monthsAvailable,
+                  );
+                  return needed > surplus ? subtract(needed, surplus) : ZERO;
+                })()
+              : ZERO,
+          horizonMonths: current.monthsToFi ?? 720,
+        },
         confidence: 'medium',
         evidence: [
           { kind: 'metric', id: 'fiTarget', label: `FI target ${rupees(target)}` },

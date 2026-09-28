@@ -138,11 +138,18 @@ export const creditCardRevolvingRule: AdvisorRule = {
   stage: 1,
   title: 'Revolving credit-card debt',
   evaluate(snapshot) {
-    const cards = snapshot.accounts.filter(
-      (a) => a.kind === 'credit_card' && !a.archived && a.balance > 0,
-    );
     const revolving = snapshot.loans.filter(
       (l) => !l.closed && l.kind === 'credit_card_revolving' && l.outstanding > 0,
+    );
+
+    // A revolving balance is commonly recorded twice - as the card Account's balance and
+    // as a Loan carrying its rate. Counting both doubles the debt and every figure
+    // derived from it, so a card that a tracked loan already mirrors is excluded here.
+    const mirrored = new Set(
+      revolving.map((l) => l.mirrorsAccountId).filter((id): id is string => id !== undefined),
+    );
+    const cards = snapshot.accounts.filter(
+      (a) => a.kind === 'credit_card' && !a.archived && a.balance > 0 && !mirrored.has(a.id),
     );
 
     const cardBalance = sum(cards.map((a) => a.balance));

@@ -207,6 +207,15 @@ export interface Loan {
   /** Account the EMI is debited from. */
   debitAccountId?: string;
   /**
+   * The Account whose balance is this same debt, when one exists.
+   *
+   * A revolving credit-card balance shows up twice: once as the card Account's balance
+   * and once as a Loan tracked for its interest rate. Without this link, anything summing
+   * both double-counts the debt - which inflates every payoff figure and every
+   * liability-side ratio built on it.
+   */
+  mirrorsAccountId?: string;
+  /**
    * Tax treatment — decides prepay-vs-invest correctly.
    * Home loans get §24(b) on interest and §80C on principal; education loans get §80E
    * on interest with no cap. An advisor that ignores this gives backwards advice.
