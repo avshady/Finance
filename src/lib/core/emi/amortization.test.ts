@@ -77,7 +77,7 @@ describe('buildSchedule', () => {
       tenureMonths: 240,
       startDate: '2026-10-05',
     });
-    const last = schedule.rows[schedule.rows.length - 1];
+    const last = schedule.rows.at(-1)!;
     expect(last.balance).toBe(0);
   });
 
@@ -111,9 +111,9 @@ describe('buildSchedule', () => {
       tenureMonths: 240,
       startDate: '2026-10-05',
     });
-    const first = schedule.rows[0];
+    const first = schedule.rows[0]!;
     expect(first.interest / first.payment).toBeGreaterThan(0.8);
-    const last = schedule.rows[schedule.rows.length - 1];
+    const last = schedule.rows.at(-1)!;
     expect(last.interest / last.payment).toBeLessThan(0.05);
   });
 
@@ -145,7 +145,7 @@ describe('buildSchedule', () => {
     });
     expect(withLump.months).toBeLessThan(baseline.months);
     // The lump sum must be visible as an outsized principal reduction in month 6.
-    expect(withLump.rows[5].principal).toBeGreaterThan(baseline.rows[5].principal);
+    expect(withLump.rows[5]!.principal).toBeGreaterThan(baseline.rows[5]!.principal);
   });
 
   it('refuses a schedule whose instalment cannot cover the interest', () => {
@@ -384,12 +384,12 @@ describe('compareStrategies', () => {
 
   it('avalanche targets the highest rate first', () => {
     const c = compareStrategies([card, small, personal], fromRupees(15_000));
-    expect(c.avalanche.steps[0].loanId).toBe('card');
+    expect(c.avalanche.steps[0]!.loanId).toBe('card');
   });
 
   it('snowball targets the smallest balance first', () => {
     const c = compareStrategies([card, small, personal], fromRupees(15_000));
-    expect(c.snowball.steps[0].loanId).toBe('durable');
+    expect(c.snowball.steps[0]!.loanId).toBe('durable');
   });
 
   it('clears every loan under both strategies', () => {
@@ -428,7 +428,7 @@ describe('remainingSchedule', () => {
   it('starts from the outstanding balance, not the original principal', () => {
     const partiallyPaid = loan({ paidInstalments: 60, outstanding: fromRupees(4_200_000) });
     const schedule = remainingSchedule(partiallyPaid);
-    expect(schedule.rows[0].balance).toBeLessThan(fromRupees(4_200_000));
+    expect(schedule.rows[0]!.balance).toBeLessThan(fromRupees(4_200_000));
     expect(schedule.months).toBeLessThanOrEqual(180);
   });
 });

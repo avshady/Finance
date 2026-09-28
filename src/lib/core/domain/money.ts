@@ -57,7 +57,7 @@ export function parseAmount(input: string): Paise | null {
   // Indian/English magnitude suffixes.
   const suffix = /^([\d.,\s]+?)\s*(k|lakhs?|lacs?|l|crores?|crs?|cr|m|mn)\b/i.exec(s);
   let multiplier = 1;
-  if (suffix) {
+  if (suffix && suffix[1] !== undefined && suffix[2] !== undefined) {
     const unit = suffix[2].toLowerCase();
     if (unit === 'k') multiplier = 1_000;
     else if (unit === 'l' || unit.startsWith('lakh') || unit.startsWith('lac')) multiplier = 100_000;
@@ -162,8 +162,8 @@ export function median(values: readonly Paise[]): Paise {
   if (values.length === 0) return ZERO;
   const sorted = [...values].sort((a, b) => a - b);
   const mid = sorted.length >> 1;
-  if (sorted.length % 2 === 1) return sorted[mid];
-  return scale(add(sorted[mid - 1], sorted[mid]), 0.5);
+  if (sorted.length % 2 === 1) return sorted[mid] as Paise;
+  return scale(add(sorted[mid - 1] as Paise, sorted[mid] as Paise), 0.5);
 }
 
 /**
