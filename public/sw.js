@@ -66,9 +66,38 @@ async function staleWhileRevalidate(request) {
   return cached || (await networkFetch) || Response.error();
 }
 
+// Web Share Target (see public/manifest.webmanifest `share_target`): the OS share
+// sheet issues a real navigation POST with multipart/form-data straight to
+// `/share`. A Next.js page can only ever respond to GET, so the service worker
+// intercepts that one POST, pulls the shared text out of the form data, and
+// redirects to the same page as a GET with `?text=...` — the page itself (and the
+// pipeline it calls) doesn't need to know whether the text arrived this way or
+// was typed into `?text=` directly, which is why /share supports both.
+function isShareTargetPost(request, url) {
+  return request.method === 'POST' && url.pathname === '/share';
+}
+
+async function handleShareTarget(request) {
+  const target = new URL('/share', self.location.origin);
+  try {
+    const formData = await request.formData();
+    const text = formData.get('text') || formData.get('url') || formData.get('title') || '';
+    if (text) target.searchParams.set('text', String(text));
+  } catch {
+    // Malformed share payload — fall through to a bare redirect; the /share page
+    // shows its own "nothing to parse" state for an empty `text`.
+  }
+  return Response.redirect(target.toString(), 303);
+}
+
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
+
+  if (url.origin === self.location.origin && isShareTargetPost(request, url)) {
+    event.respondWith(handleShareTarget(request));
+    return;
+  }
 
   // Only handle same-origin GET requests; let everything else pass through.
   if (url.origin !== self.location.origin || request.method !== 'GET') return;
