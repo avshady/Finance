@@ -72,7 +72,12 @@ One-time setup:
    already resolves it.
 
 Then run it from the **Actions** tab → **Deploy to Railway** → **Run workflow**,
-picking any branch. It also runs automatically on pushes to `main`.
+picking any branch. It also runs automatically on pushes to the default branch.
+
+Note that GitHub only lists a `workflow_dispatch` workflow once the file exists
+on the **default** branch, so the **Run workflow** button will not appear until
+this change is merged there. Until then, pushing to the default branch is the
+trigger.
 
 The workflow runs `typecheck`, `test` and `build` before it calls `railway up`.
 Railway rebuilds from source regardless, so this is not about producing the

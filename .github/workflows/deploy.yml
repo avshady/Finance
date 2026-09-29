@@ -12,7 +12,8 @@ on:
         required: false
         type: string
   push:
-    branches: [main]
+    # The repo's default branch. Change this if the default ever moves.
+    branches: ['claude/personal-finance-pwa-v3phel']
 
 # Never let two deploys race to the same service.
 concurrency:
