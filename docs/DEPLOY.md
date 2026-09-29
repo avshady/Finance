@@ -52,6 +52,36 @@ set it to a long random string and send it as the `x-ingest-secret` header:
 openssl rand -hex 32
 ```
 
+### Deploying from CI instead of the dashboard
+
+`.github/workflows/deploy.yml` deploys to Railway from GitHub Actions. This is
+the path to use when the machine you are working from cannot reach Railway
+directly — the runner has the network access, so nothing depends on your local
+egress rules.
+
+One-time setup:
+
+1. Create the Railway project once (dashboard, steps above), so there is a
+   service to deploy into.
+2. In that project: **Settings → Tokens → Create token**. A *project* token is
+   enough and is scoped to one project and environment.
+3. In GitHub: **Settings → Secrets and variables → Actions → New repository
+   secret**, named `RAILWAY_TOKEN`.
+4. Only if the project holds more than one service, add a repository *variable*
+   `RAILWAY_SERVICE` with the service name. With a single service the token
+   already resolves it.
+
+Then run it from the **Actions** tab → **Deploy to Railway** → **Run workflow**,
+picking any branch. It also runs automatically on pushes to `main`.
+
+The workflow runs `typecheck`, `test` and `build` before it calls `railway up`.
+Railway rebuilds from source regardless, so this is not about producing the
+artifact — it is about failing in seconds on a broken commit rather than
+shipping it and waiting out a healthcheck timeout.
+
+The job targets a `production` GitHub environment, so you can attach a required
+reviewer there if you want deploys gated on approval.
+
 ## Other hosts
 
 - **Vercel** — zero config; it detects Next.js. Same env vars.
