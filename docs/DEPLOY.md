@@ -52,32 +52,50 @@ set it to a long random string and send it as the `x-ingest-secret` header:
 openssl rand -hex 32
 ```
 
-### Deploying from CI instead of the dashboard
+### Deploying from CI (creates the project too)
 
-`.github/workflows/deploy.yml` deploys to Railway from GitHub Actions. This is
-the path to use when the machine you are working from cannot reach Railway
-directly — the runner has the network access, so nothing depends on your local
-egress rules.
+`.github/workflows/deploy.yml` provisions the Railway project *and* deploys to
+it from GitHub Actions. Use this when the machine you are working from cannot
+reach Railway directly — the runner has the network access, so nothing depends
+on your local egress rules. It also means no dashboard clicking: the first run
+creates the project, the service and the public domain.
 
-One-time setup:
+One-time setup — a single secret:
 
-1. Create the Railway project once (dashboard, steps above), so there is a
-   service to deploy into.
-2. In that project: **Settings → Tokens → Create token**. A *project* token is
-   enough and is scoped to one project and environment.
-3. In GitHub: **Settings → Secrets and variables → Actions → New repository
-   secret**, named `RAILWAY_TOKEN`.
-4. Only if the project holds more than one service, add a repository *variable*
-   `RAILWAY_SERVICE` with the service name. With a single service the token
-   already resolves it.
+1. Railway → **Account Settings → Tokens → Create token**. This must be an
+   *account* (or team) token, not a project token: project tokens are scoped to
+   a project that does not exist yet, so they cannot create one.
+2. GitHub → **Settings → Secrets and variables → Actions → New repository
+   secret**, named `RAILWAY_API_TOKEN`.
 
-Then run it from the **Actions** tab → **Deploy to Railway** → **Run workflow**,
-picking any branch. It also runs automatically on pushes to the default branch.
+Then **Actions → Deploy to Railway → Run workflow**. The first run will:
 
-Note that GitHub only lists a `workflow_dispatch` workflow once the file exists
-on the **default** branch, so the **Run workflow** button will not appear until
-this change is merged there. Until then, pushing to the default branch is the
-trigger.
+- create a project (named from the `project_name` input, default `wealthwise`)
+  along with its service,
+- build and deploy it,
+- generate a public `*.up.railway.app` domain,
+- poll `/api/health` until it returns 200, and fail the job if it never does.
+
+**After the first run, set `RAILWAY_PROJECT_ID`.** Copy the project ID from the
+deploy log into a repository *variable* of that name. Without it every run takes
+the create-a-new-project branch again, and you end up with a pile of duplicate
+projects. The job summary repeats this reminder.
+
+Optional repository variables:
+
+| Variable | Use |
+|---|---|
+| `RAILWAY_PROJECT_ID` | Deploy into an existing project. Set this after the first run. |
+| `RAILWAY_SERVICE` | Only needed once a project holds more than one service. |
+| `RAILWAY_WORKSPACE` | Pick a workspace when the account has several. |
+
+If you would rather create the project by hand in the dashboard, you can instead
+set `RAILWAY_PROJECT_ID` plus a project token as `RAILWAY_TOKEN` and skip the
+account token entirely — the workflow takes the link-and-deploy path.
+
+GitHub only lists a `workflow_dispatch` workflow once the file exists on the
+**default** branch, so the **Run workflow** button will not appear until this
+change is merged there.
 
 The workflow runs `typecheck`, `test` and `build` before it calls `railway up`.
 Railway rebuilds from source regardless, so this is not about producing the

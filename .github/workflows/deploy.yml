@@ -4,18 +4,21 @@ env:
   NEXT_TELEMETRY_DISABLED: 1
 
 on:
-  # Manual trigger — works from any branch via the Actions tab.
   workflow_dispatch:
     inputs:
+      project_name:
+        description: 'Name for the Railway project, used only on first run'
+        required: false
+        default: 'wealthwise'
+        type: string
       service:
-        description: 'Railway service name (overrides the RAILWAY_SERVICE variable)'
+        description: 'Service to deploy to (overrides the RAILWAY_SERVICE variable)'
         required: false
         type: string
   push:
     # The repo's default branch. Change this if the default ever moves.
     branches: ['claude/personal-finance-pwa-v3phel']
 
-# Never let two deploys race to the same service.
 concurrency:
   group: railway-deploy-${{ github.ref }}
   cancel-in-progress: false
@@ -37,38 +40,104 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Railway rebuilds from source anyway, but failing here costs seconds
-      # instead of shipping a broken build and waiting on a healthcheck timeout.
+      # Railway rebuilds from source anyway, so this is not about producing the
+      # artifact -- it is about failing in seconds on a broken commit instead of
+      # shipping it and waiting out a healthcheck timeout.
       - name: Verify the build before shipping it
         run: |
           npm run typecheck
           npm run test
           npm run build
 
-      - name: Check RAILWAY_TOKEN is configured
+      - name: Check credentials
         env:
+          RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          PROJECT_ID: ${{ vars.RAILWAY_PROJECT_ID }}
         run: |
-          if [ -z "${RAILWAY_TOKEN:-}" ]; then
-            echo "::error::RAILWAY_TOKEN secret is not set. Add it under Settings -> Secrets and variables -> Actions, using a project token from the Railway project's Settings -> Tokens."
+          if [ -z "${RAILWAY_API_TOKEN:-}" ] && [ -z "${RAILWAY_TOKEN:-}" ]; then
+            echo "::error::No Railway credentials. Set RAILWAY_API_TOKEN (an account or team token, required to CREATE a project) or RAILWAY_TOKEN (a project token, deploy-only) under Settings -> Secrets and variables -> Actions."
             exit 1
           fi
-          echo "RAILWAY_TOKEN is present."
+          if [ -z "${RAILWAY_API_TOKEN:-}" ] && [ -z "${PROJECT_ID:-}" ]; then
+            echo "::notice::Only a project token is set, so an existing project is assumed. Creating a new project needs RAILWAY_API_TOKEN."
+          fi
 
       - name: Install Railway CLI
         run: npm i -g @railway/cli@5
 
-      - name: Deploy
+      - name: Create project if needed, then deploy
+        id: deploy
         env:
+          RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          PROJECT_ID: ${{ vars.RAILWAY_PROJECT_ID }}
+          WORKSPACE: ${{ vars.RAILWAY_WORKSPACE }}
+          SERVICE: ${{ inputs.service || vars.RAILWAY_SERVICE }}
+          PROJECT_NAME: ${{ inputs.project_name || 'wealthwise' }}
+        run: |
+          set -euo pipefail
+
+          if [ -n "${PROJECT_ID:-}" ]; then
+            # Steady state: a project already exists, so link and deploy into it.
+            echo "Linking to existing project $PROJECT_ID"
+            railway link --project "$PROJECT_ID" \
+              ${SERVICE:+--service "$SERVICE"} \
+              ${WORKSPACE:+--workspace "$WORKSPACE"}
+            railway up --ci ${SERVICE:+--service "$SERVICE"}
+          else
+            # First run: create the project and service, then deploy in one go.
+            # --new is what makes `up` provision rather than expect a link.
+            echo "No RAILWAY_PROJECT_ID set -- creating a new project"
+            railway up --ci -y --new --name "$PROJECT_NAME" \
+              ${WORKSPACE:+--workspace "$WORKSPACE"}
+          fi
+
+      - name: Generate a public domain
+        id: domain
+        env:
+          RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           SERVICE: ${{ inputs.service || vars.RAILWAY_SERVICE }}
         run: |
           set -euo pipefail
-          # A project token already scopes the deploy to one project and
-          # environment, so --service is the only selector still needed --
-          # and only when the project holds more than one service.
-          if [ -n "${SERVICE:-}" ]; then
-            railway up --ci --service "$SERVICE"
-          else
-            railway up --ci
+          # Idempotent: if a service domain already exists Railway returns it
+          # rather than minting a second one.
+          railway domain ${SERVICE:+--service "$SERVICE"} 2>&1 | tee domain.txt || true
+          URL=$(grep -oE 'https?://[A-Za-z0-9.-]+' domain.txt | head -1 || true)
+          if [ -z "$URL" ]; then
+            URL=$(grep -oE '[A-Za-z0-9-]+\.up\.railway\.app' domain.txt | head -1 | sed 's#^#https://#' || true)
           fi
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "Public URL: ${URL:-<none detected>}"
+
+      - name: Smoke-test the healthcheck
+        if: steps.domain.outputs.url != ''
+        run: |
+          URL="${{ steps.domain.outputs.url }}"
+          # A fresh deploy needs a moment before the edge routes to it.
+          for i in $(seq 1 30); do
+            CODE=$(curl -sS -o /dev/null -w '%{http_code}' "$URL/api/health" --max-time 10 || echo 000)
+            if [ "$CODE" = "200" ]; then
+              echo "Healthcheck OK: $URL/api/health"
+              exit 0
+            fi
+            echo "attempt $i: HTTP $CODE"
+            sleep 10
+          done
+          echo "::error::Healthcheck never returned 200 at $URL/api/health"
+          exit 1
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Railway deploy"
+            echo
+            echo "- URL: ${{ steps.domain.outputs.url || 'not detected' }}"
+            echo "- Commit: \`${{ github.sha }}\`"
+            echo
+            echo "If this was a first run, copy the project ID from the deploy"
+            echo "log into a repo variable named \`RAILWAY_PROJECT_ID\` so later"
+            echo "runs deploy into the same project instead of creating another."
+          } >> "$GITHUB_STEP_SUMMARY"
