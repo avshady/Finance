@@ -12,7 +12,12 @@
 //      client-side router can still render (client-side routes, offline banner).
 //   5. `activate` deletes every cache that isn't the current version.
 
-const CACHE_VERSION = 'wealthwise-v1';
+// The build id from the registration URL (`/sw.js?v=...`). A worker's self.location
+// includes the query string it was registered with, so each deploy gets its own cache
+// namespace without needing a build step to rewrite this file. Falls back to a constant
+// when registered without one, which keeps the worker usable if opened directly.
+const BUILD_ID = new URL(self.location.href).searchParams.get('v') || 'dev';
+const CACHE_VERSION = `wealthwise-${BUILD_ID}`;
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 
@@ -24,7 +29,10 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches
       .open(SHELL_CACHE)
-      .then((cache) => cache.addAll(SHELL_URLS))
+      // `cache: 'reload'` so the precache is fetched from the network rather than from
+      // the HTTP cache or the outgoing worker. Precaching a stale copy of the shell is
+      // the exact failure this versioning is meant to end.
+      .then((cache) => cache.addAll(SHELL_URLS.map((url) => new Request(url, { cache: 'reload' }))))
       .then(() => self.skipWaiting())
   );
 });
