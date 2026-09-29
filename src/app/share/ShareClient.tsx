@@ -176,7 +176,7 @@ export default function ShareClient({ initialText }: ShareClientProps) {
           <button
             type="button"
             onClick={() => runPreview(text)}
-            className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-background"
+            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
           >
             Parse
           </button>
@@ -247,7 +247,7 @@ export default function ShareClient({ initialText }: ShareClientProps) {
               type="button"
               onClick={handleConfirm}
               disabled={stage !== 'preview'}
-              className="rounded-md bg-positive px-4 py-2 text-sm font-medium text-background disabled:opacity-50"
+              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
             >
               Confirm &amp; save
             </button>

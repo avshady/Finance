@@ -48,10 +48,13 @@ export function Button({
   ...rest
 }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'secondary' | 'ghost' | 'danger' }) {
   const variantClass: Record<string, string> = {
-    primary: 'bg-accent text-background hover:opacity-90',
-    secondary: 'border border-border text-foreground hover:bg-surface-raised',
+    primary: 'bg-primary text-primary-foreground hover:opacity-90',
+    secondary: 'border border-border bg-surface text-foreground hover:bg-surface-raised',
     ghost: 'text-muted hover:text-foreground',
-    danger: 'bg-negative text-background hover:opacity-90',
+    // Destructive stays red rather than black. In an app with a "delete all data"
+    // button, colour is the warning, and flattening it into the primary style would
+    // remove the one signal that distinguishes it at a glance.
+    danger: 'bg-negative text-primary-foreground hover:opacity-90',
   };
   return (
     <button

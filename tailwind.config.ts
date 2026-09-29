@@ -12,6 +12,8 @@ const config: Config = {
         border: 'rgb(var(--color-border) / <alpha-value>)',
         foreground: 'rgb(var(--color-foreground) / <alpha-value>)',
         muted: 'rgb(var(--color-muted) / <alpha-value>)',
+        primary: 'rgb(var(--color-primary) / <alpha-value>)',
+        'primary-foreground': 'rgb(var(--color-primary-foreground) / <alpha-value>)',
         positive: 'rgb(var(--color-positive) / <alpha-value>)',
         negative: 'rgb(var(--color-negative) / <alpha-value>)',
         warning: 'rgb(var(--color-warning) / <alpha-value>)',

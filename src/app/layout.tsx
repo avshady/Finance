@@ -29,7 +29,7 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
-  themeColor: '#0B1220',
+  themeColor: '#FFFFFF',
 };
 
 interface NavLink {
@@ -55,7 +55,7 @@ const NAV_LINKS: NavLink[] = [
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en">
       <body>
         <ServiceWorkerRegister />
         <div className="app-shell">

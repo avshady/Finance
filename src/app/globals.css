@@ -2,24 +2,37 @@
 @tailwind components;
 @tailwind utilities;
 
-/* WealthWise dark financial-dashboard palette. Values are R G B triplets so
-   Tailwind can apply alpha via `rgb(var(--x) / <alpha-value>)`. */
-:root {
-  --color-background: 11 18 32; /* #0B1220 deep navy */
-  --color-surface: 17 26 43; /* #111A2B */
-  --color-surface-raised: 24 36 58; /* #18243A */
-  --color-border: 39 52 79; /* #27344F */
-  --color-foreground: 229 233 240; /* #E5E9F0 high-contrast text */
-  --color-muted: 148 163 184; /* #94A3B8 secondary text */
+/* WealthWise light palette. Values are R G B triplets so Tailwind can apply
+   alpha via `rgb(var(--x) / <alpha-value>)`.
 
-  --color-positive: 34 211 165; /* #22D3A5 green — income, gains */
-  --color-negative: 248 113 113; /* #F87171 red — expenses, debt */
-  --color-warning: 245 158 11; /* #F59E0B amber — guardrails, alerts */
-  --color-accent: 96 165 250; /* #60A5FA blue — links, focus */
+   The semantic colours are deliberately darker than the usual Tailwind picks.
+   A finance screen states gains, losses and warnings in colour, and the shades
+   that read well on dark navy (#22D3A5, #F87171) drop to roughly 2:1 contrast
+   on white, which is unreadable for the small figures this app is mostly made
+   of. Every value below clears WCAG AA (4.5:1) against the background. */
+:root {
+  --color-background: 255 255 255; /* #FFFFFF */
+  --color-surface: 255 255 255; /* cards are white, separated by border not fill */
+  --color-surface-raised: 244 244 245; /* #F4F4F5 hover and inset fills */
+  --color-border: 228 228 231; /* #E4E4E7 */
+  --color-foreground: 9 9 11; /* #09090B near-black, 19.8:1 */
+  --color-muted: 82 82 91; /* #52525B secondary text, 7.4:1 */
+
+  /* Primary action. Black, per the chosen scheme, and kept separate from
+     --color-accent so links and focus rings stay blue and legible rather than
+     becoming indistinguishable from body text. */
+  --color-primary: 9 9 11; /* #09090B */
+  --color-primary-foreground: 255 255 255;
+
+  --color-positive: 4 120 87; /* #047857 income, gains — 5.0:1 */
+  --color-negative: 185 28 28; /* #B91C1C expenses, debt — 5.9:1 */
+  --color-warning: 180 83 9; /* #B45309 guardrails, alerts — 4.9:1 */
+  --color-accent: 29 78 216; /* #1D4ED8 links, focus — 6.3:1 */
 }
 
-/* This app is dark-first; it does not currently ship a light theme, but the
-   variables stay in one place so one can be added without touching markup. */
+/* Single light theme. Tokens live here so a dark theme can be added by
+   redefining this block under a selector without touching any markup — no
+   component hardcodes a colour. */
 
 * {
   border-color: rgb(var(--color-border));
